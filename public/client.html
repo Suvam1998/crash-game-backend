@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Crash Game Client</title>
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    .log {
+      background: #f0f0f0;
+      padding: 10px;
+      margin-top: 10px;
+      height: 200px;
+      overflow-y: auto;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <h1>Crash Game Test Client</h1>
+
+  <div id="playerPrompt">
+    <label>Enter your Player ID:</label><br>
+    <input id="playerIdInput" />
+    <button onclick="setPlayerId()">Submit</button>
+  </div>
+
+  <div id="gameInterface" style="display: none;">
+    <label>USD Amount:</label><br>
+    <input id="usdAmount" type="number" value="10" /><br><br>
+
+    <label>Crypto Amount:</label><br>
+    <input id="cryptoAmount" type="number" value="0.00025" /><br><br>
+
+    <label>Currency (e.g. btc, eth):</label><br>
+    <input id="currency" value="btc" /><br><br>
+
+    <button onclick="placeBet()">Place Bet</button>
+    <button onclick="cashOut()">Cash Out</button>
+
+    <div class="log" id="log"></div>
+  </div>
+
+  <script>
+    const socket = io('http://localhost:5000');
+    let playerId = null;
+
+    socket.on('connect', () => {
+      log('Connected to server.');
+    });
+
+    socket.on('roundStart', data => {
+      log(`New Round Started (#${data.roundNumber}) | Hash: ${data.hash}`);
+    });
+
+    socket.on('multiplier', m => {
+      log(`Multiplier: x${m}`);
+    });
+
+    socket.on('crash', crashPoint => {
+      log(`💥 Crashed at x${crashPoint}`);
+    });
+
+    socket.on('playerCashout', data => {
+      log(`💰 Player ${data.playerId} cashed out at x${data.multiplier}`);
+    });
+
+    function setPlayerId() {
+      playerId = document.getElementById('playerIdInput').value.trim();
+      if (!playerId) {
+        alert('Please enter a valid Player ID');
+        return;
+      }
+      document.getElementById('playerPrompt').style.display = 'none';
+      document.getElementById('gameInterface').style.display = 'block';
+      log(`Player ID set to: ${playerId}`);
+    }
+
+    function placeBet() {
+      const usdAmount = parseFloat(document.getElementById('usdAmount').value);
+      const cryptoAmount = parseFloat(document.getElementById('cryptoAmount').value);
+      const currency = document.getElementById('currency').value;
+
+      if (!playerId) return alert("Player ID is not set!");
+
+      socket.emit('bet', { playerId, usdAmount, cryptoAmount, currency });
+      log(`✅ Bet placed: $${usdAmount} / ${cryptoAmount} ${currency}`);
+    }
+
+    function cashOut() {
+      if (!playerId) return alert("Player ID is not set!");
+      socket.emit('cashout', { playerId, multiplier: 1 }); // multiplier is ignored by backend
+      log(`🛑 Cashout requested for ${playerId}`);
+    }
+
+    function log(message) {
+      const logBox = document.getElementById('log');
+      logBox.innerHTML += `${new Date().toLocaleTimeString()} - ${message}<br>`;
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+  </script>
+</body>
+</html>
